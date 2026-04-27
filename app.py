@@ -31,11 +31,11 @@ def index():
             try:
                 filename = file.filename.lower()
 
-                # ✅ HANDLE TXT FILE
+                
                 if filename.endswith('.txt'):
                     medical_report = file.read().decode('utf-8', errors='replace')
 
-                # ✅ HANDLE PDF FILE
+                
                 elif filename.endswith('.pdf'):
                     medical_report = extract_text_from_pdf(file)
 
