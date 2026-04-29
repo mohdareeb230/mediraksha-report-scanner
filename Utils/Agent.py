@@ -2,92 +2,80 @@ from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 
 
-class Agent:
-    def __init__(self, medical_report = None, role = None, extra_info = None):
+class ReportAnalyzer:
+    def __init__(self, medical_report):
         self.medical_report = medical_report
-        self.role = role
-        self.extra_info = extra_info
-        self.prompt_template = self.create_prompt_template()
 
         self.model = ChatGroq(
-            api_key = "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",
-            model = "llama-3.3-70b-versatile",
+            api_key="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",
+            model="llama-3.3-70b-versatile",
             temperature=0.0
         )
-    
-    def create_prompt_template(self):
-        if self.role == "MultidisciplinaryTeam":
-            templates = f"""Act like a multidisciplinary team of healthcare professionals.
-                You will receive a medical report of a patient visited by a Cardiologist, Psychologist, and Pulmonologist.
-                Task: Review the patient's medical report from the Cardiologist, Psychologist, and Pulmonologist, analyze them and come up with a list of 3 possible health issues of the patient.
-                Just return a list of bullet points of 3 possible health issues of the patient and for each issue provide the reason.
 
-                Cardiologist Report: {self.extra_info.get('cardiologist_report', '')}
-                Psychologist Report: {self.extra_info.get('psychologist_report', '')}
-                Pulmonologist Report: {self.extra_info.get('pulmonologist_report', '')}"""
-            return PromptTemplate.from_template(templates)
+        self.prompt_template = PromptTemplate.from_template("""
+You are a professional clinical report analyzer.
 
-        else:
-            templates = {
-                "Cardiologist": """
-                    Act like a cardiologist. You will receive a medical report of a patient.
-                    Task: Review the patient's cardiac workup, including ECG, blood tests, Holter monitor results, and echocardiogram.
-                    Focus: Determine if there are any subtle signs of cardiac issues that could explain the patient’s symptoms. Rule out any underlying heart conditions, such as arrhythmias or structural abnormalities, that might be missed on routine testing.
-                    Recommendation: Provide guidance on any further cardiac testing or monitoring needed to ensure there are no hidden heart-related concerns. Suggest potential management strategies if a cardiac issue is identified.
-                    Please only return the possible causes of the patient's symptoms and the recommended next steps.
-                    Medical Report: {medical_report}
-                """,
-                "Psychologist": """
-                    Act like a psychologist. You will receive a patient's report.
-                    Task: Review the patient's report and provide a psychological assessment.
-                    Focus: Identify any potential mental health issues, such as anxiety, depression, or trauma, that may be affecting the patient's well-being.
-                    Recommendation: Offer guidance on how to address these mental health concerns, including therapy, counseling, or other interventions.
-                    Please only return the possible mental health issues and the recommended next steps.
-                    Patient's Report: {medical_report}
-                """,
-                "Pulmonologist": """
-                    Act like a pulmonologist. You will receive a patient's report.
-                    Task: Review the patient's report and provide a pulmonary assessment.
-                    Focus: Identify any potential respiratory issues, such as asthma, COPD, or lung infections, that may be affecting the patient's breathing.
-                    Recommendation: Offer guidance on how to address these respiratory concerns, including pulmonary function tests, imaging studies, or other interventions.
-                    Please only return the possible respiratory issues and the recommended next steps.
-                    Patient's Report: {medical_report}"""
-            }
+Analyze the given medical report and generate a structured, formal medical analysis.
 
-            selected_templates = templates[self.role]
-            return PromptTemplate.from_template(selected_templates)
-        
+STRICT RULES:
+- Do NOT assume any medical specialty unless clearly mentioned.
+- Do NOT generate information not present in the report.
+- Keep the tone formal and clinical.
+- If data is missing, do not guess.
+
+FORMAT:
+
+CLINICAL LABORATORY ANALYSIS REPORT
+
+--------------------------------------------
+
+1. KEY FINDINGS:
+- List only abnormal or important findings
+- If none, write: No significant abnormalities detected
+
+--------------------------------------------
+
+2. OBSERVATIONS:
+Parameter | Value | Reference Range | Interpretation
+
+(Include only available parameters)
+
+--------------------------------------------
+
+3. CLINICAL INTERPRETATION:
+Write a short professional paragraph explaining findings.
+
+--------------------------------------------
+
+4. IMPRESSION:
+Short summary of overall findings.
+
+--------------------------------------------
+
+5. RECOMMENDATIONS:
+- Suggest further tests if needed
+- Suggest doctor consultation
+- Do NOT suggest medicines
+
+--------------------------------------------
+
+6. DISCLAIMER:
+This report is AI-generated and should be clinically verified.
+
+--------------------------------------------
+
+Medical Report:
+{medical_report}
+""")
+
     def run(self):
-        print(f"{self.role} is running.....")
-        prompt = self.prompt_template.format(medical_report=self.medical_report)
-
         try:
+            prompt = self.prompt_template.format(
+                medical_report=self.medical_report
+            )
             response = self.model.invoke(prompt)
             return response.content
+
         except Exception as e:
-            print(f"Error Occurred: ", e)
-            return None
-    
-class Cardiologist(Agent):
-    def __init__(self, medical_report):
-        super().__init__(medical_report, "Cardiologist")
-
-    
-class Psychologist(Agent):
-    def __init__(self, medical_report):
-        super().__init__(medical_report, "Psychologist")
-
-        
-class Pulmonologist(Agent):
-    def __init__(self, medical_report):
-        super().__init__(medical_report, "Pulmonologist")
-
-    
-class MultidisciplinaryTeam(Agent):
-    def __init__(self, cardiologist_report, psychologist_report, pulmonologist_report):
-        extra_info = {
-            "cardiologist_report":cardiologist_report, 
-            "psychologist_report":psychologist_report,
-            "pulmonologist_report":pulmonologist_report
-        }
-        super().__init__(role = "MultidisciplinaryTeam", extra_info=extra_info)
+            print("Error:", e)
+            return "Error generating report."
