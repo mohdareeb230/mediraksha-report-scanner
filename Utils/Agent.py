@@ -7,7 +7,7 @@ class ReportAnalyzer:
         self.medical_report = medical_report
 
         self.model = ChatGroq(
-            api_key="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",
+            api_key="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",
             model="llama-3.3-70b-versatile",
             temperature=0.0
         )
