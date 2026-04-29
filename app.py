@@ -1,12 +1,12 @@
 from flask import Flask, request, render_template
-from concurrent.futures import ThreadPoolExecutor, as_completed
-from Utils.Agent import Cardiologist, Psychologist, Pulmonologist, MultidisciplinaryTeam
+from Utils.Agent import ReportAnalyzer
 import os
-import pdfplumber 
+import pdfplumber
 
 app = Flask(__name__)
+
 UPLOAD_FOLDER = 'uploads'
-RESULT_PATH = 'results/final_diagnosis.txt'
+RESULT_PATH = 'results/final_report.txt'
 
 os.makedirs(UPLOAD_FOLDER, exist_ok=True)
 os.makedirs(os.path.dirname(RESULT_PATH), exist_ok=True)
@@ -31,51 +31,29 @@ def index():
             try:
                 filename = file.filename.lower()
 
-                
                 if filename.endswith('.txt'):
                     medical_report = file.read().decode('utf-8', errors='replace')
 
-                
                 elif filename.endswith('.pdf'):
                     medical_report = extract_text_from_pdf(file)
 
                 else:
-                    return render_template("index.html", error="Please upload a valid .txt or .pdf file.")
+                    return render_template("index.html", error="Upload .txt or .pdf file only.")
 
-                # Normalize text (important for LLMs)
                 medical_report = medical_report.encode("utf-8", errors="ignore").decode("utf-8")
 
-                # Run individual specialists
-                agents = {
-                    "Cardiologist": Cardiologist(medical_report),
-                    "Psychologist": Psychologist(medical_report),
-                    "Pulmonologist": Pulmonologist(medical_report)
-                }
+                # Use single analyzer
+                analyzer = ReportAnalyzer(medical_report)
+                final_report = analyzer.run()
 
-                responses = {}
-                with ThreadPoolExecutor() as executor:
-                    futures = {executor.submit(agent.run): name for name, agent in agents.items()}
-                    for future in as_completed(futures):
-                        agent_name = futures[future]
-                        responses[agent_name] = future.result()
+                # Save output
+                with open(RESULT_PATH, 'w', encoding='utf-8') as f:
+                    f.write(final_report)
 
-                # Run multidisciplinary agent
-                team_agent = MultidisciplinaryTeam(
-                    cardiologist_report=responses["Cardiologist"],
-                    psychologist_report=responses["Psychologist"],
-                    pulmonologist_report=responses["Pulmonologist"]
-                )
-                final_diagnosis = team_agent.run()
-
-                # Save result
-                final_diagnosis_text = final_diagnosis
-                with open(RESULT_PATH, 'w', encoding='utf-8') as result_file:
-                    result_file.write(final_diagnosis_text)
-
-                return render_template("index.html", diagnosis=final_diagnosis_text)
+                return render_template("index.html", diagnosis=final_report)
 
             except Exception as e:
-                return render_template("index.html", error=f"Error processing file: {str(e)}")
+                return render_template("index.html", error=str(e))
 
         return render_template("index.html", error="No file uploaded.")
 
