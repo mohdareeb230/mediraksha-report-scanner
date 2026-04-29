@@ -2,7 +2,7 @@ from flask import Flask, request, render_template
 from Utils.Agent import ReportAnalyzer
 import os
 import pdfplumber
-
+print("API KEY:", os.getenv("GROQ_API_KEY"))
 app = Flask(__name__)
 
 UPLOAD_FOLDER = 'uploads'
