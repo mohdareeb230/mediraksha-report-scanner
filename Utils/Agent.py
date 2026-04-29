@@ -1,3 +1,4 @@
+import os
 from langchain_core.prompts import PromptTemplate
 from langchain_groq import ChatGroq
 
@@ -7,7 +8,7 @@ class ReportAnalyzer:
         self.medical_report = medical_report
 
         self.model = ChatGroq(
-            api_key=GROQ_API_KEY,
+            api_key=os.getenv("GROQ_API_KEY"),
             model="llama-3.3-70b-versatile",
             temperature=0.0
         )
